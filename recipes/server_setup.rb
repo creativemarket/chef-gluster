@@ -97,22 +97,15 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     # Create the volume if it doesn't exist
     unless File.exist?("/var/lib/glusterd/vols/#{volume_name}/info")
       # Create a hash of peers and their bricks
-      Chef::Log.warn("inside the glusterd/vols unless block")
       volume_bricks = {}
       brick_count = 0
       peers = volume_values.attribute?('peer_names') ? volume_values['peer_names'] : volume_values['peers']
-      Chef::Log.warn("peers = #{peers}")
       peers.each do |peer|
-        Chef::Log.warn("Inside peers.each. peer = #{peer}")
         chef_node = Chef::Node.load(peer)
-        Chef::Log.warn("chef_node = #{chef_node}")
         if chef_node['gluster']['server'].attribute?('bricks')
           peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
-          Chef::Log.warn("peer_bricks = #{peer_bricks}")
           volume_bricks[peer] = peer_bricks
-          Chef::Log.warn("volume_bricks = #{volume_bricks}")
           brick_count += (peer_bricks.count || 0)
-          Chef::Log.warn("brick_count = #{brick_count}")
         end rescue NoMethodError
       end
 
@@ -120,24 +113,19 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       options = String.new
       case volume_values['volume_type']
       when 'replicated'
-        Chef::Log.warn("inside case when replicated")
         # Ensure the trusted pool has the correct number of bricks available
         if brick_count < volume_values['replica_count']
-          Chef::Log.warn("case = r. brick_count = #{brick_count}. volume_values['replica_count'] = #{volume_values['replica_count']}. volume_values['peers'].count = #{volume_values['peers'].count}")
           Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
           next
         else
           options = "replica #{volume_values['replica_count']}"
-          Chef::Log.warn("options = #{options}")
           volume_bricks.each do |peer, vbricks|
             options << " #{peer}:#{vbricks.first}"
-            Chef::Log.warn("options = #{options}")
           end
         end
       when 'distributed-replicated'
         # The number of bricks must be a multiple of the replica count.
         if ((brick_count % volume_values['replica_count']) != 0)
-          Chef::Log.warn("case = d-r. brick_count = #{brick_count}. volume_values['replica_count'] = #{volume_values['replica_count']}. volume_values['peers'].count = #{volume_values['peers'].count}")
           Chef::Log.warn("For distributed-replicated, the number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly.")
           next
         else
@@ -145,7 +133,6 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
           (1..volume_values['replica_count']).each do |i|
             volume_bricks.each do |peer, vbricks|
               options << " #{peer}:#{vbricks[i - 1]}"
-              Chef::Log.warn("options = #{options}")
             end
           end
         end
