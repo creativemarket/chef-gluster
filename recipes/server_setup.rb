@@ -111,8 +111,17 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		    volume_bricks[peer] = peer_bricks
 		    brick_count += (peer_bricks.count || 0)
 		    log "brick_count = #{brick_count}"
+            log "volume_bricks for #{peer} = #{volume_bricks[peer]}"
 		  end rescue NoMethodError
+          log "volume_bricks = #{volume_bricks.flatten}"
 	    end
+
+        # add my bricks into the mix
+        unless node['gluster']['server']['bricks'].empty?
+          volume_bricks[node.fqdn] = node['gluster']['server']['bricks']
+        else
+          log "----This node has no bricks!----"
+        end
 
 	    # Create option string
 	    options = String.new
