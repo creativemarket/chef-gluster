@@ -84,7 +84,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   node_count = node['gluster']['server']['node_count']
   peer_count = node['gluster']['server']['peers'].count
   if (peer_count == node_count)
-    # Only continue if the node is the last peer in the array
+    # Only continue if the node is the last peer in the array. Eliminates need for chef run on already up nodes.
 	if volume_values['peers'].last == node['fqdn']
 	  # Configure the trusted pool if needed
 	  volume_values['peers'].each do |peer|
@@ -110,47 +110,34 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		    peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
 		    volume_bricks[peer] = peer_bricks
 		    brick_count += (peer_bricks.count || 0)
-		    log "brick_count = #{brick_count}"
-            log "volume_bricks for #{peer} = #{volume_bricks[peer]}"
 		  end rescue NoMethodError
-          log "volume_bricks = #{volume_bricks.flatten}"
+          log "volume_bricks = #{volume_bricks}"
 	    end
 
-        # add my bricks into the mix
+        # add my bricks into the mix and increment the brick_count
         unless node['gluster']['server']['bricks'].empty?
+          log "adding my bricks"
           volume_bricks[node.fqdn] = node['gluster']['server']['bricks']
+          brick_count += volume_bricks[node.fqdn].count
+          log "now volume_bricks = #{volume_bricks}"
         else
           log "----This node has no bricks!----"
         end
 
 	    # Create option string
 	    options = String.new
-	    case volume_values['volume_type']
-	    when 'replicated'
-		  # Ensure the trusted pool has the correct number of bricks available
-		  if brick_count < volume_values['replica_count']
-		    log "Correct number of bricks not available for volume #{volume_name}. Skipping..."
-		    next
-		  else
-		    options = "replica #{volume_values['replica_count']}"
-		    volume_bricks.each do |peer, vbricks|
-			  options << " #{peer}:#{vbricks.first}"
+        # The number of bricks must be a multiple of the replica count.
+        if ((brick_count % volume_values['replica_count']) != 0)
+		  log "The number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly. Skipping..."
+		else
+		  options = "replica #{volume_values['replica_count']}"
+          loop_count = ( brick_count / peer_count )
+          (1..loop_count).each do |i|
+            volume_bricks.each do |peer, vbricks|
+              options << " #{peer}:#{vbricks[i - 1]}"
 		    end
 		  end
-	    when 'distributed-replicated'
-		  # The number of bricks must be a multiple of the replica count.
-		  if ((brick_count % volume_values['replica_count']) != 0)
-		    log "For distributed-replicated, the number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly."
-		    next
-		  else
-		    options = "replica #{volume_values['replica_count']}"
-		    (1..volume_values['replica_count']).each do |i|
-			  volume_bricks.each do |peer, vbricks|
-			    options << " #{peer}:#{vbricks[i - 1]}"
-			  end
-		    end
-		  end
-	    end
+        end
 
 	    execute "gluster volume create #{volume_name} #{options}" do
 		  action :run
