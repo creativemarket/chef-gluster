@@ -14,18 +14,12 @@ Attributes
 ----------
 
 ### gluster::default
-- `node['gluster']['version']` - version to install, defaults to 3.4
-
-### gluster::client
-Node attributes to specify volumes to mount. This has been deprecated in favor of using the 'gluster_mount' LWRP.
-
-- `node['gluster']['client']['volumes'][VOLUME_NAME]['server']` - server to connect to
-- `node['gluster']['client']['volumes'][VOLUME_NAME]['backup_server']` - name of the backup volfile server to mount the client. When the first volfile server fails, then the server specified here is used as volfile server and is mounted by the client. This can be a String or Array of Strings.
-- `node['gluster']['client']['volumes'][VOLUME_NAME]['mount_point']` - mount point to use for the Gluster volume
+- `node['gluster']['version']` - version to install, defaults to 3.6
 
 ### gluster::server
 Node attributes to specify server volumes to create
 
+- `node['gluster']['server']['node_count'] - number of servers in the pool required for volume creation to begin`
 - `node['gluster']['server']['brick_mount_path']` - default path to use for mounting bricks
 - `node['gluster']['server']['disks']` - an array of disks to create partitions on and format for use with Gluster, (for example, ['sdb', 'sdc'])
 - `node['gluster']['server']['peer_retries']` - attempt to connect to peers up to N times
@@ -37,7 +31,6 @@ Node attributes to specify server volumes to create
 - `node['gluster']['server']['volumes'][VOLUME_NAME]['peers']` - an array of FQDNs for peers used in the volume
 - `node['gluster']['server']['volumes'][VOLUME_NAME]['quota']` - an optional disk quota to set for the volume, such as '10GB'
 - `node['gluster']['server']['volumes'][VOLUME_NAME]['replica_count']` - the number of replicas to create
-- `node['gluster']['server']['volumes'][VOLUME_NAME]['volume_type']` - the volume type to use; currently 'replicated' and 'distributed-replicated' are the only types supported
 
 LWRPs
 -----
@@ -64,6 +57,6 @@ end
 Usage
 -----
 
-On two or more identical systems, attach the desired number of dedicated disks to use for Gluster storage. Add the `gluster::server` recipe to the node's run list and add any appropriate attributes, such as volumes to the `['gluster']['server']['volumes']` attribute. If the cookbook will be used to manage disks, add the disks to the `['gluster']['server']['disks']` attribute; otherwise format the disks appropriately and add them to the `['gluster']['server']['volumes'][VOLUME_NAME]['disks']` attribute. Once all peers for a volume have configured their bricks, the 'master' peer (the first in the array) will create and start the volume.
+On two or more identical systems, attach the desired number of dedicated disks to use for Gluster storage. Add the `gluster::server` recipe to the node's run list and add any appropriate attributes, such as volumes to the `['gluster']['server']['volumes']` attribute. If the cookbook will be used to manage disks, add the disks to the `['gluster']['server']['disks']` attribute; otherwise format the disks appropriately and add them to the `['gluster']['server']['volumes'][VOLUME_NAME]['disks']` attribute. Once all peers for a volume have configured their bricks, the 'master' peer (the last in the array) will create and start the volume.
 
 For clients, add the gluster::default or gluster::client recipe to the node's run list, and mount volumes using the `gluster_mount` LWRP. The Gluster volume will be mounted on the next chef-client run (provided the volume exists and is available) and added to /etc/fstab.
