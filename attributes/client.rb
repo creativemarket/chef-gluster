@@ -24,6 +24,3 @@ when 'ubuntu'
 when 'redhat', 'centos'
   default['gluster']['client']['package'] = 'glusterfs'
 end
-
-# Gluster volumes to mount
-default['gluster']['client']['volumes'] = []
