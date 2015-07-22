@@ -86,11 +86,9 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   if (peer_count == node_count)
     # Only continue if the node is the last peer in the array
 	if volume_values['peers'].last == node['fqdn']
-      Chef::Log.info("inside peers.last")
 	  # Configure the trusted pool if needed
 	  volume_values['peers'].each do |peer|
 	    unless peer == node['fqdn']
-	      Chef::Log.info("inside peers probe block")
 		  execute "gluster peer probe #{peer}" do
 		    action :run
 		    not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
@@ -112,7 +110,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		    peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
 		    volume_bricks[peer] = peer_bricks
 		    brick_count += (peer_bricks.count || 0)
-		    Chef::Log.info("brick_count = #{brick_count}")
+		    log "brick_count = #{brick_count}"
 		  end rescue NoMethodError
 	    end
 
@@ -122,7 +120,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 	    when 'replicated'
 		  # Ensure the trusted pool has the correct number of bricks available
 		  if brick_count < volume_values['replica_count']
-		    Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
+		    log "Correct number of bricks not available for volume #{volume_name}. Skipping..."
 		    next
 		  else
 		    options = "replica #{volume_values['replica_count']}"
@@ -133,7 +131,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 	    when 'distributed-replicated'
 		  # The number of bricks must be a multiple of the replica count.
 		  if ((brick_count % volume_values['replica_count']) != 0)
-		    Chef::Log.warn("For distributed-replicated, the number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly.")
+		    log "For distributed-replicated, the number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly."
 		    next
 		  else
 		    options = "replica #{volume_values['replica_count']}"
@@ -181,6 +179,6 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 	  end
     end
   else
-    log "Number of peers (#{peer_count}) is not equal to node_count (#{node_count}). Skipping gluster::server_setup."
+    log "Number of peers (#{peer_count}) is not equal to node_count (#{node_count}). Skipping cluster converge steps."
   end
 end
