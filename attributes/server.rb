@@ -35,6 +35,8 @@ when 'redhat', 'centos'
   default['gluster']['server']['dependencies'] = ['xfsprogs']
 end
 
+# Minimum number of servers in the pool required for volume creation to begin.
+default['gluster']['server']['node_count'] = 2
 # Default path to use for mounting bricks
 default['gluster']['server']['brick_mount_path'] = '/gluster'
 # Partitions to create and format
