@@ -78,14 +78,17 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 	end
 	# Save the array of bricks to the node's attributes
 	node.set['gluster']['server']['bricks'] = bricks
+    log "bricks = #{bricks}"
   end
 
   # wait until # of peers == # of desired cluster nodes, then set up the gluster volumes
   node_count = node['gluster']['server']['node_count']
   peer_count = node['gluster']['server']['peers'].count
+  log "peer_count = #{peer_count} and node_count = #{node_count}"
   if (peer_count == node_count)
     # Only continue if the node is the last peer in the array. Eliminates need for chef run on already up nodes.
-	if volume_values['peers'].last == node['ipaddress']
+	log "volume_values['peer_names'].last = #{volume_values['peer_names'].last} and my IP = #{node['ipaddress']}"
+    if volume_values['peer_names'].last == node.name
 	  # Configure the trusted pool if needed
 	  volume_values['peers'].each do |peer|
 	    unless peer == node['ipaddress']
