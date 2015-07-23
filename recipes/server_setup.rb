@@ -111,20 +111,18 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		  chef_node = Chef::Node.load(peer)
 		  if chef_node['gluster']['server'].attribute?('bricks')
 		    peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
-		    volume_bricks[peer] = peer_bricks
+		    volume_bricks[chef_node.ipaddress] = peer_bricks
 		    brick_count += (peer_bricks.count || 0)
 		  end rescue NoMethodError
           log "volume_bricks = #{volume_bricks}"
 	    end
 
         # add my bricks into the mix and increment the brick_count
-        unless node['gluster']['server']['bricks'].empty?
+        unless volume_bricks.include?(node.ipaddress)
           log "adding my bricks"
           volume_bricks[node.ipaddress] = node['gluster']['server']['bricks']
           brick_count += volume_bricks[node.ipaddress].count
           log "now volume_bricks = #{volume_bricks}"
-        else
-          log "----This node has no bricks!----"
         end
 
 	    # Create option string
