@@ -54,7 +54,7 @@ end
 bricks = []
 node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   # If the node is configured as a peer for the volume, create directories to use as bricks
-  if volume_values['peers'].include? node['ipaddress']
+  if volume_values['peers'].include? node.name
 	# If using LVM
 	if volume_values.attribute?('lvm_volumes') || node['gluster']['server'].attribute?('lvm_volumes')
 	  # Use either configured LVM volumes or default LVM volumes
@@ -87,11 +87,11 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   log "peer_count = #{peer_count} and node_count = #{node_count}"
   if (peer_count == node_count)
     # Only continue if the node is the last peer in the array. Eliminates need for chef run on already up nodes.
-	log "volume_values['peer_names'].last = #{volume_values['peer_names'].last} and my IP = #{node['ipaddress']}"
-    if volume_values['peer_names'].last == node.name
+	log "volume_values['peers'].last = #{volume_values['peers'].last} and my name = #{node.name}"
+    if volume_values['peers'].last == node.name
 	  # Configure the trusted pool if needed
 	  volume_values['peers'].each do |peer|
-	    unless peer == node['ipaddress']
+	    unless peer == node.name
 		  execute "gluster peer probe #{peer}" do
 		    action :run
 		    not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
@@ -111,17 +111,17 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		  chef_node = Chef::Node.load(peer)
 		  if chef_node['gluster']['server'].attribute?('bricks')
 		    peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
-		    volume_bricks[chef_node.ipaddress] = peer_bricks
+		    volume_bricks[chef_node.name] = peer_bricks
 		    brick_count += (peer_bricks.count || 0)
 		  end rescue NoMethodError
           log "volume_bricks = #{volume_bricks}"
 	    end
 
         # add my bricks into the mix and increment the brick_count
-        unless volume_bricks.include?(node.ipaddress)
+        unless volume_bricks.include?(node.name)
           log "adding my bricks"
-          volume_bricks[node.ipaddress] = node['gluster']['server']['bricks']
-          brick_count += volume_bricks[node.ipaddress].count
+          volume_bricks[node.name] = node['gluster']['server']['bricks']
+          brick_count += volume_bricks[node.name].count
           log "now volume_bricks = #{volume_bricks}"
         end
 
