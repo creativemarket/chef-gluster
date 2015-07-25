@@ -84,7 +84,6 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   # wait until # of peers == # of desired cluster nodes, then set up the gluster volumes
   node_count = node['gluster']['server']['node_count']
   peer_count = volume_values['peers'].count
-  log "peer_count = #{peer_count} and node_count = #{node_count}"
   if (peer_count == node_count)
     # Only continue if the node is the last peer in the array. Eliminates need for chef run on already up nodes.
 	log "volume_values['peers'].last = #{volume_values['peers'].last} and my name = #{node.name}"
