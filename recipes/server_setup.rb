@@ -139,7 +139,11 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 		  end
         end
 
-	    execute "gluster volume create #{volume_name} #{options}" do
+        service 'glusterfs-server' do
+    		action :restart
+    	end
+
+        execute "sleep 10 && gluster volume create #{volume_name} #{options}" do
 		  action :run
 	    end
 	  end
