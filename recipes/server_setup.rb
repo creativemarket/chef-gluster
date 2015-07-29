@@ -50,7 +50,6 @@ if node['gluster']['server'].attribute?('disks')
   end
 end
 
-# Create and start volumes
 bricks = []
 node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   # If the node is configured as a peer for the volume, create directories to use as bricks
@@ -79,110 +78,5 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
 	# Save the array of bricks to the node's attributes
 	node.set['gluster']['server']['bricks'] = bricks
     log "bricks = #{bricks}"
-  end
-
-  # wait until # of peers == # of desired cluster nodes, then set up the gluster volumes
-  node_count = node['gluster']['server']['node_count']
-  peer_count = volume_values['peers'].count
-  if (peer_count == node_count)
-    # Only continue if the node is the last peer in the array. Eliminates need for chef run on already up nodes.
-	log "volume_values['peers'].last = #{volume_values['peers'].last} and my name = #{node.name}"
-    if volume_values['peers'].last == node.name
-	  # Configure the trusted pool if needed
-	  volume_values['peers'].each do |peer|
-	    unless peer == node.name
-		  execute "gluster peer probe #{peer}" do
-		    action :run
-		    not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
-		    retries node['gluster']['server']['peer_retries']
-		    retry_delay node['gluster']['server']['peer_retry_delay']
-		  end
-	    end
-	  end
-
-	  # Create the volume if it doesn't exist
-	  unless File.exist?("/var/lib/glusterd/vols/#{volume_name}/info")
-	    # Create a hash of peers and their bricks
-	    volume_bricks = {}
-	    brick_count = 0
-	    peers = volume_values.attribute?('peer_names') ? volume_values['peer_names'] : volume_values['peers']
-	    peers.each do |peer|
-		  chef_node = Chef::Node.load(peer)
-		  if chef_node['gluster']['server'].attribute?('bricks')
-		    peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
-		    volume_bricks[chef_node.name] = peer_bricks
-		    brick_count += (peer_bricks.count || 0)
-		  end rescue NoMethodError
-          log "volume_bricks = #{volume_bricks}"
-	    end
-
-        # add my bricks into the mix and increment the brick_count
-        unless volume_bricks.include?(node.name)
-          log "adding my bricks"
-          volume_bricks[node.name] = node['gluster']['server']['bricks']
-          brick_count += volume_bricks[node.name].count
-          log "now volume_bricks = #{volume_bricks}"
-        end
-
-	    # Create option string
-	    options = String.new
-        # The number of bricks must be a multiple of the replica count.
-        if ((brick_count % volume_values['replica_count']) != 0)
-		  log "The number of bricks must be a multiple of the replica count. Please adjust #{volume_name} accordingly. Skipping..."
-		else
-		  options = "replica #{volume_values['replica_count']}"
-          loop_count = ( brick_count / peer_count )
-          (1..loop_count).each do |i|
-            volume_bricks.each do |peer, vbricks|
-              options << " #{peer}:#{vbricks[i - 1]}"
-		    end
-		  end
-        end
-
-        execute "sleep  10" do
-		  action :run
-	    end
-
-        service 'glusterfs-server' do
-    		action :restart
-    	end
-
-        execute "sleep 60 && gluster volume create #{volume_name} #{options}" do
-		  action :run
-	    end
-	  end
-
-	  # Start the volume
-	  execute "gluster volume start #{volume_name}" do
-	    action :run
-	    not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
-	  end
-
-	  # Restrict access to the volume if configured
-	  if volume_values['allowed_hosts']
-	    allowed_hosts = volume_values['allowed_hosts'].join(',')
-	    execute "gluster volume set #{volume_name} auth.allow #{allowed_hosts}" do
-		  action :run
-		  not_if "egrep '^auth.allow=#{allowed_hosts}$' /var/lib/glusterd/vols/#{volume_name}/info"
-	    end
-	  end
-
-	  # Configure volume quote if configured
-	  if volume_values['quota']
-	    # Enable quota
-	    execute "gluster volume quota #{volume_name} enable" do
-		  action :run
-		  not_if "egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info"
-	    end
-
-	    # Configure quota for the root of the volume
-	    execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
-		  action :run
-		  not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
-	    end
-	  end
-    end
-  else
-    log "Number of peers (#{peer_count}) is not equal to node_count (#{node_count}). Skipping cluster converge steps."
   end
 end
