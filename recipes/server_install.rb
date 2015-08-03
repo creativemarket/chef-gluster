@@ -31,3 +31,8 @@ package node['gluster']['server']['package']
 service node['gluster']['server']['servicename'] do
   action [:enable, :start]
 end
+
+# Need to check volume status at least once in order to create the glusterd.info file
+execute 'gluster v status' do
+    ignore_failure true
+end
