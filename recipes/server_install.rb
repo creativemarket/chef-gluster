@@ -29,5 +29,7 @@ package node['gluster']['server']['package']
 
 # Make sure the service is started
 service node['gluster']['server']['servicename'] do
-  action [:enable]
+  provider 	Chef::Provider::Service::Upstart
+  supports 	status: true, restart: true
+  action 		:enable
 end
